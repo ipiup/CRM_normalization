@@ -3,13 +3,13 @@
 library(shiny)
 library(dplyr)
 library(ggplot2)
-library(shinymanager)
+#library(shinymanager)
 library(binom)
 
-credentials <- data.frame(
-  user = c("admin"), password = c("courgette"),
-  stringsAsFactors = FALSE
-)
+#credentials <- data.frame(
+ # user = c("admin"), password = c("courgette"),
+  #stringsAsFactors = FALSE
+#)
 
 
 # ---- CONFIG ----------
@@ -384,12 +384,12 @@ ui_content <- fluidPage(
   )
 )
 
-ui <- secure_app(ui_content)
-
+#ui <- secure_app(ui_content)
+ui = ui_content
 # -------------- Server ----------------
 server <- function(input, output, session) {
   
-  res_auth <- secure_server(check_credentials = check_credentials(credentials))
+  #res_auth <- secure_server(check_credentials = check_credentials(credentials))
   
   # ── SIB50 normatif ───────
   sib50_reel_selected <- reactive({ SIB50_REEL })
