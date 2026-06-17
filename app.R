@@ -18,11 +18,11 @@ SNR_min <- -18
 SNR_max  <-  6
 glm_fit  <- readRDS("model.rds")
 
-# SRT50 normatif : SNR pour lequel la courbe normative prédit p = 50 %
+# SIB50 normatif : SNR pour lequel la courbe normative prédit p = 50 %
 # Calculé depuis glm_fit (logit link) : SNR = -b0 / b1
 b0_norm    <- coef(glm_fit)["(Intercept)"]
 b1_norm    <- coef(glm_fit)["SNR_numeric"]
-SRT50_REEL <- as.numeric(-b0_norm / b1_norm) #-11.1
+SIB50_REEL <- as.numeric(-b0_norm / b1_norm) #-11.1
 
 snr_grid <- data.frame(SNR_numeric = seq(SNR_min, SNR_max, length.out = 300))
 snr_grid$fit     <- predict(glm_fit, newdata = snr_grid, type = "response")
@@ -61,10 +61,7 @@ zone_label_full <- function(z) switch(z,
 
 ##
 
-predict_srt50 <- function(snrs, perfs, n_trials) {
-  # Methode : GLM binomial individuel ajuste sur les 3 points (SNR -6, -9, -12 dB)
-  # intercept ET pente re-estimes librement — coherent avec le code de validation R2.
-  # SRT50 = (logit(0.5) - b0) / b1 = -b0 / b1  (car logit(0.5) = 0)
+predict_sib50 <- function(snrs, perfs, n_trials) {
   valid <- !is.na(perfs) & !is.na(snrs) & perfs > 0 & perfs < 1
   if (sum(valid) < 2) return(NA_real_)
   df <- data.frame(
@@ -83,15 +80,6 @@ predict_srt50 <- function(snrs, perfs, n_trials) {
   as.numeric((log(0.5 / (1 - 0.5)) - b0) / b1)
 }
 
-#predict_srt50 <- function(snrs, perfs, base_model) {
-#  valid <- !is.na(perfs) & !is.na(snrs) & perfs > 0 & perfs < 1
-#  if (sum(valid) < 1) return(NA_real_)
-#  beta1   <- coef(base_model)["SNR_numeric"]
-#  logit_p <- log(perfs[valid] / (1 - perfs[valid]))
-#  b0      <- mean(logit_p - beta1 * snrs[valid])
-#  as.numeric(-b0 / beta1)
-#}
-
 build_result <- function(snr, perf_pct, n, lvl, method) {
   p         <- perf_pct / 100
   ci        <- compute_ci(p, n, lvl, method)
@@ -103,9 +91,6 @@ build_result <- function(snr, perf_pct, n, lvl, method) {
 }
 
 ##
-
-#predicted_SNR = (log(prop / (1 - prop)) - coef(glm_fit)[1]) / coef(glm_fit)[2]
-# ca revient au meme parce que prop = 0.5 et log(0.5/1-0.5) = 0 donc ca revient à faire -coef(1)/coef(2)
 
 # ------------- CSS ---------------
 
@@ -245,39 +230,39 @@ body, .shiny-frame, .container-fluid {
   font-weight: 600 !important;
 }
 
-/* ── SRT50 comparison ── */
-.srt50-row {
+/* ── SIB50 comparison ── */
+.sib50-row {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 8px;
   margin-bottom: 12px;
 }
-.srt50-cell {
+.sib50-cell {
   border-radius: 8px;
   padding: 12px 10px;
   text-align: center;
   border-width: 1.5px;
   border-style: solid;
 }
-.srt50-val {
+.sib50-val {
   font-family: 'DM Mono', monospace;
   font-size: 1.75em;
   font-weight: 500;
   line-height: 1.1;
 }
-.srt50-lbl {
+.sib50-lbl {
   font-size: 0.7em;
   text-transform: uppercase;
   letter-spacing: 0.7px;
   margin-top: 4px;
   opacity: 0.72;
 }
-.srt50-pred { background:#e8f0fb; color:#1a3a6e; border-color:#93b8e8; }
-.srt50-real { background:#f4f6fb; color:#2a3550; border-color:#c8d0e0; }
-.srt50-ok   { background:#edf7e6; color:#2d6e18; border-color:#a8d98a; }
-.srt50-warn { background:#fff5e6; color:#8a4a00; border-color:#f5c07a; }
-.srt50-bad  { background:#fdeaea; color:#7a1520; border-color:#f0a0a8; }
-.srt50-na   { background:#f4f6fb; color:#9aa5be; border-color:#d0d7e8; font-style:italic; }
+.sib50-pred { background:#e8f0fb; color:#1a3a6e; border-color:#93b8e8; }
+.sib50-real { background:#f4f6fb; color:#2a3550; border-color:#c8d0e0; }
+.sib50-ok   { background:#edf7e6; color:#2d6e18; border-color:#a8d98a; }
+.sib50-warn { background:#fff5e6; color:#8a4a00; border-color:#f5c07a; }
+.sib50-bad  { background:#fdeaea; color:#7a1520; border-color:#f0a0a8; }
+.sib50-na   { background:#f4f6fb; color:#9aa5be; border-color:#d0d7e8; font-style:italic; }
 
 /* ── Retest banner ── */
 .retest-banner {
@@ -332,14 +317,14 @@ ui_content <- fluidPage(
     # ── Left panel ────────────────────────────────────────
     sidebarPanel(width = 4,
                  
-                 # SRT50 normatif fixe
+                 # SIB50 normatif fixe
                  div(class = "card",
                      p(class = "card-title", "Normative reference"),
                      div(style="display:flex;align-items:center;gap:10px;padding:6px 10px;
                    background:#f4f6fb;border-radius:7px;border:1px solid #d0d7e8;",
                          div(style="font-size:0.75em;text-transform:uppercase;letter-spacing:0.7px;
-                     color:#8896b3;font-weight:600;", "Normative SRT50"),
-                         uiOutput("srt50_reel_display")
+                     color:#8896b3;font-weight:600;", "SIB50 normatif"),
+                         uiOutput("sib50_reel_display")
                      ),
                      tags$p(style="color:#9aa5be;font-size:0.78em;margin-top:8px;line-height:1.5;",
                             "SNR of the normative curve for 50% of correct response.")
@@ -351,13 +336,31 @@ ui_content <- fluidPage(
                      sliderInput("snr_init", "Tested SNR (dB)",
                                  min=SNR_min, max=SNR_max, value=-9, step=3),
                      fluidRow(
-                       column(6, numericInput("perf_init",    "Performance (%)", value=63, min=0, max=100, step=1)),
+                       column(6, numericInput("perf_init",    "Performance (%)", value=NA, min=0, max=100, step=1)),
                        column(6, numericInput("ntrials_init", "Number of trials", value=32, min=1, max=250, step=1))
                      )
                  ),
                  
-                 # Retests conditionnels
-                 uiOutput("retest_inputs"),
+                 # Retests conditionnels — always in DOM, shown/hidden via conditionalPanel
+                 conditionalPanel(
+                   condition = "output.show_retest",
+                   div(class = "card",
+                       p(class = "card-title", "Retests"),
+                       div(class = "retest-banner",
+                           uiOutput("retest_banner_text")
+                       ),
+                       uiOutput("retest_snr_labels"),
+                       fluidRow(
+                         column(6, numericInput("perf_plus",    "Performance (%)", value=NA, min=0, max=100, step=1)),
+                         column(6, numericInput("ntrials_plus", "Number of trials", value=32, min=1, max=250, step=1))
+                       ),
+                       uiOutput("retest_minus_label"),
+                       fluidRow(
+                         column(6, numericInput("perf_minus",    "Performance (%)", value=NA, min=0, max=100, step=1)),
+                         column(6, numericInput("ntrials_minus", "Number of trials", value=32, min=1, max=250, step=1))
+                       )
+                   )
+                 ),
                  
                  # IC
                  div(class = "card",
@@ -386,21 +389,23 @@ ui_content <- fluidPage(
 
 #ui <- secure_app(ui_content)
 ui = ui_content
+
 # -------------- Server ----------------
 server <- function(input, output, session) {
   
   #res_auth <- secure_server(check_credentials = check_credentials(credentials))
   
-  # ── SRT50 normatif ───────
-  srt50_reel_selected <- reactive({ SRT50_REEL })
+  # ── SIB50 normatif ───────
+  sib50_reel_selected <- reactive({ SIB50_REEL })
   
-  output$srt50_reel_display <- renderUI({
+  output$sib50_reel_display <- renderUI({
     div(style="font-family:'DM Mono',monospace;font-size:1.15em;font-weight:500;color:#1e2535;",
-        sprintf("%.1f dB", SRT50_REEL))
+        sprintf("%.1f dB", SIB50_REEL))
   })
   
   # ── Test initial ────────────────────────────────────────
   result_init <- reactive({
+    req(!is.na(input$perf_init))
     build_result(input$snr_init, input$perf_init, input$ntrials_init,
                  input$ci_level/100, input$ci_method)
   })
@@ -408,56 +413,51 @@ server <- function(input, output, session) {
   snr_plus  <- reactive({ input$snr_init + 3 })
   snr_minus <- reactive({ input$snr_init - 3 })
   
-  # ── Retest UI ───────────────────────────────────────────
-  output$retest_inputs <- renderUI({
+  # ── Retest card visibility (used by conditionalPanel) ──
+  output$show_retest <- reactive({
     ri <- result_init()
-    if (!(ri$zone %in% c("orange","red"))) return(NULL)
-    sp <- snr_plus(); sm <- snr_minus()
-    sp_default = predict(glm_fit,
-                         newdata = data.frame(SNR_numeric = sp - 3),
-                         type = "response")*100
-    sm_default = predict(glm_fit,
-                         newdata = data.frame(SNR_numeric = sm - 3),
-                         type = "response")*100
-    
-    div(class = "card",
-        p(class = "card-title", "Retests"),
-        div(class = "retest-banner",
-            HTML(sprintf(
-              "⚠ Ambiguous or abnormal results<br>
-           Retests recomanded à <b>%+d dB</b> et <b>%+d dB</b>.",
-              sp, sm))
-        ),
-        tags$p(style="font-size:0.82em;font-weight:600;color:#5a6480;margin-bottom:6px;",
-               sprintf("SNR %+d dB", sp)),
-        fluidRow(
-          column(6, numericInput("perf_plus",    "Performance (%)", value=round(sp_default), min=0, max=100, step=1)),
-          column(6, numericInput("ntrials_plus", "Number of trials",       value=32, min=1, max=250, step=1))
-        ),
-        tags$p(style="font-size:0.82em;font-weight:600;color:#5a6480;margin:10px 0 6px 0;",
-               sprintf("SNR %+d dB", sm)),
-        fluidRow(
-          column(6, numericInput("perf_minus",    "Performance (%)", value=round(sm_default), min=0, max=100, step=1)),
-          column(6, numericInput("ntrials_minus", "Number of trials",       value=32, min=1, max=250, step=1))
-        )
+    ri$zone %in% c("orange", "red")
+  })
+  outputOptions(output, "show_retest", suspendWhenHidden = FALSE)
+  
+  output$retest_banner_text <- renderUI({
+    HTML(sprintf(
+      "⚠ Ambiguous or abnormal results<br>Retests recommended at <b>%+d dB</b> and <b>%+d dB</b>.",
+      snr_plus(), snr_minus()
+    ))
+  })
+  
+  output$retest_snr_labels <- renderUI({
+    tagList(
+      tags$p(style="font-size:0.82em;font-weight:600;color:#5a6480;margin-bottom:6px;",
+             sprintf("SNR %+d dB", snr_plus())),
+      # spacer rendered after the plus inputs via retest_minus_label
     )
   })
   
+  output$retest_minus_label <- renderUI({
+    tags$p(style="font-size:0.82em;font-weight:600;color:#5a6480;margin:10px 0 6px 0;",
+           sprintf("SNR %+d dB", snr_minus()))
+  })
+  
   result_plus <- reactive({
-    req(input$perf_plus, input$ntrials_plus)
+    req(input$perf_plus, !is.na(input$perf_plus), input$ntrials_plus)
     build_result(snr_plus(), input$perf_plus, input$ntrials_plus,
                  input$ci_level/100, input$ci_method)
   })
   result_minus <- reactive({
-    req(input$perf_minus, input$ntrials_minus)
+    req(input$perf_minus, !is.na(input$perf_minus), input$ntrials_minus)
     build_result(snr_minus(), input$perf_minus, input$ntrials_minus,
                  input$ci_level/100, input$ci_method)
   })
   
   all_results <- reactive({
     ri <- result_init()
+    perf_p <- input$perf_plus
+    perf_m <- input$perf_minus
     if (ri$zone %in% c("orange","red") &&
-        !is.null(input$perf_plus) && !is.null(input$perf_minus)) {
+        !is.null(perf_p) && !is.na(perf_p) &&
+        !is.null(perf_m) && !is.na(perf_m)) {
       list(ri, result_plus(), result_minus())
     } else {
       list(ri)
@@ -484,7 +484,7 @@ server <- function(input, output, session) {
   # ── Main results block ──────────────────────────────────
   output$results_ui <- renderUI({
     results <- all_results()
-    reel    <- srt50_reel_selected()
+    reel    <- sib50_reel_selected()
     
     # ── Detail table ──────────────────────────────────────
     rows_html <- paste0(sapply(results, function(r) {
@@ -514,76 +514,76 @@ server <- function(input, output, session) {
         </table>', rows_html))
     )
     
-    # ── SRT50 card (3 résultats seulement) ────────────────
-    srt50_card <- NULL
+    # ── SIB50 card (3 résultats seulement) ────────────────
+    sib50_card <- NULL
     
     if (length(results) == 3) {
       snrs       <- sapply(results, `[[`, "snr")
       perfs      <- sapply(results, `[[`, "p")
       n_vec      <- sapply(results, `[[`, "n")
-      srt50_pred <- predict_srt50(snrs, perfs, n_vec)
+      sib50_pred <- predict_sib50(snrs, perfs, n_vec)
       
       # Cellule prédit
-      cell_pred <- div(class="srt50-cell srt50-pred",
-                       div(class="srt50-val",
-                           if(is.na(srt50_pred)) "—" else sprintf("%.1f dB", srt50_pred)),
-                       div(class="srt50-lbl", "Predicted SRT50")
+      cell_pred <- div(class="sib50-cell sib50-pred",
+                       div(class="sib50-val",
+                           if(is.na(sib50_pred)) "—" else sprintf("%.1f dB", sib50_pred)),
+                       div(class="sib50-lbl", "Predicted SIB50")
       )
       
       # Cellule réel
-      cell_real <- div(class="srt50-cell srt50-real",
-                       div(class="srt50-val",
+      cell_real <- div(class="sib50-cell sib50-real",
+                       div(class="sib50-val",
                            if(is.na(reel)) "—" else sprintf("%.1f dB", reel)),
-                       div(class="srt50-lbl",
-                           if(is.na(reel)) "Normative SRT50 (non chargé)" else "Normative SRT50")
+                       div(class="sib50-lbl",
+                           if(is.na(reel)) "Normative SIB50 (non chargé)" else "Normative SIB50")
       )
       
       # Cellule écart
-      cell_diff <- if (!is.na(srt50_pred) && !is.na(reel)) {
-        diff  <- srt50_pred - reel
+      cell_diff <- if (!is.na(sib50_pred) && !is.na(reel)) {
+        diff  <- sib50_pred - reel
         adiff <- abs(diff)
-        cls   <- if (adiff <= 1) "srt50-ok" else if (adiff <= 3) "srt50-warn" else "srt50-bad"
+        cls   <- if (adiff <= 1) "sib50-ok" else if (adiff <= 3) "sib50-warn" else "sib50-bad"
         icon  <- if (adiff <= 1) "✓" else if (adiff <= 3) "⚠" else "✗"
-        div(class=paste0("srt50-cell ", cls),
-            div(class="srt50-val", sprintf("%s %+.1f", icon, diff)),
-            div(class="srt50-lbl", "Difference (predicted − normative)")
+        div(class=paste0("sib50-cell ", cls),
+            div(class="sib50-val", sprintf("%s %+.1f", icon, diff)),
+            div(class="sib50-lbl", "Difference (predicted − normative)")
         )
       } else {
-        div(class="srt50-cell srt50-na",
-            div(class="srt50-val", "—"),
-            div(class="srt50-lbl", "Impossible to compute")
+        div(class="sib50-cell sib50-na",
+            div(class="sib50-val", "—"),
+            div(class="sib50-lbl", "Impossible to compute")
         )
       }
       
       # Note méthode
-      note <- if (is.na(srt50_pred)) {
+      note <- if (is.na(sib50_pred)) {
         tags$p(style="color:#e07b00;font-size:0.82em;margin-top:6px;",
-               "⚠ SRT50 cannot be computed— performance at 0 % or 100 %(logit undefined).")
+               "⚠ SIB50 cannot be computed— performance at 0 % or 100 %(logit undefined).")
       } else {
         tags$p(style="color:#9aa5be;font-size:0.78em;margin-top:8px;line-height:1.5;",
                "Method: fixed slope of the normative curve, participant intercept estimated on the 3
-               tested SNR. The SRT50 is the SNR at which the preformance reaches 50%.")
+               tested SNR. The SIB50 is the SNR at which the preformance reaches 50%.")
       }
       
-      srt50_card <- div(class="card",
-                        p(class="card-title", "SRT50"),
-                        div(class="srt50-row", cell_pred, cell_real, cell_diff),
+      sib50_card <- div(class="card",
+                        p(class="card-title", "SIB50"),
+                        div(class="sib50-row", cell_pred, cell_real, cell_diff),
                         note
       )
     }
     
-    tagList(table_card, srt50_card)
+    tagList(table_card, sib50_card)
   })
   
   # ── Plot ────────────────────────────────────────────────
   output$plot <- renderPlot({
     results    <- all_results()
-    reel       <- srt50_reel_selected()
+    reel       <- sib50_reel_selected()
     
     p_base <- ggplot() +
       geom_ribbon(data=snr_grid,
                   aes(x=SNR_numeric, ymin=0, ymax=fit_3dB),
-                  fill="#94262e", alpha=0.10) + #
+                  fill="#94262e", alpha=0.10) +
       geom_line(data=snr_grid,
                 aes(x=SNR_numeric, y=fit, colour="Normative curve"),
                 linewidth=1.1) +
@@ -613,24 +613,22 @@ server <- function(input, output, session) {
         geom_errorbar(aes(x=!!r$snr, ymin=!!r$lwr, ymax=!!r$upr),
                       colour=col, width=0.5, linewidth=1.4) +
         geom_point(aes(x=!!r$snr, y=!!r$p),
-                   colour=col, size=5, shape=18) #+
-      # annotate("text", x=r$snr+0.3, y=min(r$upr+0.07, 0.97),
-      #          label=lbl, colour=col, hjust=0, size=3.5, fontface="bold")
+                   colour=col, size=5, shape=18)
     }
     
-    # SRT50 prédit + réel sur le graphe ANCIENNE VERSION SANS LA COURBE SRT50
+    # SIB50 prédit + réel sur le graphe ANCIENNE VERSION SANS LA COURBE SIB50
     if (length(results) == 800) {
       snrs       <- sapply(results, `[[`, "snr")
       perfs      <- sapply(results, `[[`, "p")
       n_vec      <- sapply(results, `[[`, "n")
-      srt50_pred <- predict_srt50(snrs, perfs,n_vec )
+      sib50_pred <- predict_sib50(snrs, perfs,n_vec )
       
-      if (!is.na(srt50_pred) && srt50_pred >= SNR_min && srt50_pred <= SNR_max) {
+      if (!is.na(sib50_pred) && sib50_pred >= SNR_min && sib50_pred <= SNR_max) {
         p_base <- p_base +
-          geom_vline(xintercept=srt50_pred, linetype="dotted",
+          geom_vline(xintercept=sib50_pred, linetype="dotted",
                      colour="#3a6fc4", linewidth=1.1) +
-          annotate("text", x=srt50_pred+0.2, y=0.60,
-                   label=sprintf("Predicted SRT50\n%.1f dB", srt50_pred),
+          annotate("text", x=sib50_pred+0.2, y=0.60,
+                   label=sprintf("Predicted SIB50\n%.1f dB", sib50_pred),
                    colour="#3a6fc4", hjust=0, size=3.4, fontface="bold")
       }
       
@@ -639,11 +637,11 @@ server <- function(input, output, session) {
           geom_vline(xintercept=reel, linetype="dotted",
                      colour="#444444", linewidth=1.0) +
           annotate("text", x=reel+0.2, y=0.44,
-                   label=sprintf("Normative SRT50\n%.1f dB", reel),
+                   label=sprintf("Normative SIB50\n%.1f dB", reel),
                    colour="#444444", hjust=0, size=3.4, fontface="bold")
       }
     }
-    # SRT50 prédit + réel + fit participant
+    # SIB50 prédit + réel + fit participant
     if (length(results) == 3) {
       
       snrs       <- sapply(results, `[[`, "snr")
@@ -670,7 +668,7 @@ server <- function(input, output, session) {
         error = function(e) NULL
       )
       
-      srt50_pred <- predict_srt50(snrs, perfs_fit, n_vec)
+      sib50_pred <- predict_sib50(snrs, perfs_fit, n_vec)
       
       # ─────────────────────────────────────
       # courbe psychométrique participant
@@ -710,17 +708,17 @@ server <- function(input, output, session) {
       }
       
       # ─────────────────────────────────────
-      # SRT50 participant
+      # SIB50 participant
       # ─────────────────────────────────────
       
-      if (!is.na(srt50_pred) &&
-          srt50_pred >= SNR_min &&
-          srt50_pred <= SNR_max) {
+      if (!is.na(sib50_pred) &&
+          sib50_pred >= SNR_min &&
+          sib50_pred <= SNR_max) {
         
         p_base <- p_base +
           
           geom_vline(
-            xintercept = srt50_pred,
+            xintercept = sib50_pred,
             linetype = "dotted",
             colour = "#3a6fc4",
             linewidth = 1.1
@@ -728,11 +726,11 @@ server <- function(input, output, session) {
           
           annotate(
             "text",
-            x = srt50_pred + 0.2,
+            x = sib50_pred + 0.2,
             y = 0.60,
             label = sprintf(
-              "Predicted SRT50\n%.1f dB",
-              srt50_pred
+              "Predicted SIB50\n%.1f dB",
+              sib50_pred
             ),
             colour = "#3a6fc4",
             hjust = 0,
@@ -742,7 +740,7 @@ server <- function(input, output, session) {
       }
       
       # ─────────────────────────────────────
-      # SRT50 normatif
+      # SIB50 normatif
       # ─────────────────────────────────────
       
       if (!is.na(reel) &&
@@ -763,7 +761,7 @@ server <- function(input, output, session) {
             x = reel + 0.2,
             y = 0.44,
             label = sprintf(
-              "Normative SRT50\n%.1f dB",
+              "Normative SIB50\n%.1f dB",
               reel
             ),
             colour = "#444444",
